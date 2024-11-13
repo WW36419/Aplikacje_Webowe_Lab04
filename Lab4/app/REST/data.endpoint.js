@@ -60,11 +60,23 @@ const posts = [
         image: 'https://www.pandasecurity.com/en/mediacenter/src/uploads/2013/11/pandasecurity-facebook-photo-privacy.jpg'
     },
  ];
- 
- 
- const dataEndpoint = (router) => {
+
+
+const dataEndpoint = (router) => {
     router.get('/api/posts', async (request, response, next) => {
-        response.status(200).send({posts: posts});
+        let outPosts = posts;
+        let page = request.query.page;
+        let limit = request.query.limit;
+        let title = request.query.title;
+        
+        if (title != null)
+            outPosts = outPosts.filter((post) => {
+                return post.title.includes(title);
+            })
+        if (page != null && limit != null)
+            outPosts = outPosts.slice((page-1)*limit, page*limit);
+
+        response.status(200).send({posts: outPosts});
     });
 
     router.get('/api/post/:id', async (request, response, next) => {
@@ -75,25 +87,45 @@ const posts = [
     router.post('/api/posts', async (request, response, next) => {
         let newPost = request.body.newPost;
 
-        if (newPost.title != null && newPost.text != null && newPost.image != null) {
+        let idChk = (newPost.id != null);
+        let titleChk = (newPost.title != null);
+        let textChk = (newPost.text != null);
+        let imageChk = (newPost.image != null);
+
+        if (idChk && titleChk && textChk && imageChk) {
             posts.push(request.body.newPost);
             response.status(200).send({post: posts[posts.length - 1]});
         } else {
-            response.status(400).send("Brak pól");
+            response.status(400).send("Brak pól: " + 
+                (idChk ? "" : "'id' ") + 
+                (titleChk ? "" : "'title' ") + 
+                (textChk ? "" : "'text' ") + 
+                (imageChk ? "" : "'image' ")
+            );
         }
     });
 
     router.put('/api/post/:id', async (request, response, next) => {
-        let newPost = request.body.newPost;
         let id = request.params.id;
         let confirm = false;
+        
+        let newTitle = request.body.title;
+        let newText = request.body.text;
+        let newImage = request.body.image;
 
-        if (newPost.title != null && newPost.text != null && newPost.image != null) {
+        let titleChk = (newTitle != null);
+        let textChk = (newText != null);
+        let imageChk = (newImage != null);
+
+        if (titleChk || textChk || imageChk) {
             posts.forEach((post) => {
-                if (post.id === id) {
-                    post.title = newPost.title;
-                    post.text = newPost.text;
-                    post.image = newPost.image;
+                if (post.id == id) {
+                    if (titleChk)
+                        post.title = newTitle;
+                    if (textChk)
+                        post.text = newText;
+                    if (imageChk)
+                        post.image = newImage;
                     confirm = true;
                 }
             })
@@ -101,10 +133,10 @@ const posts = [
             if (confirm) {
                 response.status(200).send({post: posts[id-1]});
             } else {
-                response.status(404).send("Nie znaleziono postu o danym id.");
+                response.status(404).send("Nie znaleziono postu o danym id: " + id);
             }
         } else {
-            response.status(400).send("Brak pól");
+            response.status(400).send("Brak danego pola! Wymagane jedno z tych pól: 'title' 'text' 'image' ");
         }
     });
 
@@ -113,14 +145,14 @@ const posts = [
         let id = request.params.id;
         let postIdx = null;
         posts.forEach((post) => {
-            if (post.id === id)
+            if (post.id == id)
                 postIdx = posts.indexOf(post)
         })
-        if (postIdx == null) {
+        if (postIdx != null) {
             posts.splice(postIdx, 1)
-            response.status(200).send("Usunięto post o id: " + postIdx);
+            response.status(200).send("Usunięto post o id: " + id);
         } else {
-            response.status(404).send("Nie znaleziono postu o danym id.");
+            response.status(404).send("Nie znaleziono postu o id: " + id);
         }
     });
  };
